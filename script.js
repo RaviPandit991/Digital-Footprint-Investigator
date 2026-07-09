@@ -1193,7 +1193,41 @@ async function checkBackend() {
     }
 }
 
+// ---------- THEME TOGGLE ----------
+const THEME_KEY = 'dfi-theme';
+
+function getPreferredTheme() {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+    const btn = $('themeToggle');
+    if (btn) btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+}
+
+function initTheme() {
+    applyTheme(getPreferredTheme());
+    const btn = $('themeToggle');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+    // Follow OS preference change if user hasn't picked one manually
+    window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', (e) => {
+        if (!localStorage.getItem(THEME_KEY + '-manual')) {
+            applyTheme(e.matches ? 'light' : 'dark');
+        }
+    });
+    btn.addEventListener('click', () => localStorage.setItem(THEME_KEY + '-manual', '1'), { once: true });
+}
+
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initTabs(); initToolCards(); initModal(); initResultsToolbar(); checkBackend();
 });

@@ -10,7 +10,9 @@
     padding: 0;
 }
 
-:root {
+/* ============ DARK THEME (default) ============ */
+:root,
+:root[data-theme="dark"] {
     --bg-primary: #0a0e1a;
     --bg-secondary: #111827;
     --bg-tertiary: #1a2033;
@@ -31,14 +33,56 @@
     --gradient: linear-gradient(135deg, #00d9ff 0%, #a855f7 100%);
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     --shadow-glow: 0 0 30px var(--accent-glow);
+    --bg-body-image-1: rgba(0, 217, 255, 0.08);
+    --bg-body-image-2: rgba(168, 85, 247, 0.06);
+    --header-bg: rgba(10, 14, 26, 0.7);
+    --overlay-bg: rgba(0, 0, 0, 0.7);
+    --overlay-bg-loading: rgba(10, 14, 26, 0.85);
+    --scrollbar-track: var(--bg-primary);
+    --scrollbar-thumb: var(--border);
 }
+
+/* ============ LIGHT THEME ============ */
+:root[data-theme="light"] {
+    --bg-primary: #f4f7fb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #eef2f8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f7f9fc;
+    --border: #e2e8f0;
+    --border-light: #cbd5e1;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent: #0891b2;
+    --accent-glow: rgba(8, 145, 178, 0.15);
+    --accent-hover: #06b6d4;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --purple: #9333ea;
+    --gradient: linear-gradient(135deg, #0891b2 0%, #9333ea 100%);
+    --shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+    --shadow-glow: 0 0 30px var(--accent-glow);
+    --bg-body-image-1: rgba(8, 145, 178, 0.08);
+    --bg-body-image-2: rgba(147, 51, 234, 0.06);
+    --header-bg: rgba(255, 255, 255, 0.85);
+    --overlay-bg: rgba(30, 41, 59, 0.45);
+    --overlay-bg-loading: rgba(244, 247, 251, 0.9);
+    --scrollbar-track: var(--bg-primary);
+    --scrollbar-thumb: var(--border-light);
+}
+
+/* Prevent flash on load — theme applied before CSS parses fully */
+html { background: var(--bg-primary); transition: background 0.3s ease; }
 
 body {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
     background: var(--bg-primary);
     background-image:
-        radial-gradient(at 20% 0%, rgba(0, 217, 255, 0.08) 0px, transparent 50%),
-        radial-gradient(at 80% 100%, rgba(168, 85, 247, 0.06) 0px, transparent 50%);
+        radial-gradient(at 20% 0%, var(--bg-body-image-1) 0px, transparent 50%),
+        radial-gradient(at 80% 100%, var(--bg-body-image-2) 0px, transparent 50%);
+    transition: background 0.3s ease, color 0.3s ease;
     background-attachment: fixed;
     color: var(--text-primary);
     min-height: 100vh;
@@ -52,12 +96,62 @@ body {
     justify-content: space-between;
     padding: 20px 40px;
     border-bottom: 1px solid var(--border);
-    background: rgba(10, 14, 26, 0.7);
+    background: var(--header-bg);
     backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
     z-index: 100;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.theme-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    padding: 0;
+}
+
+.theme-toggle:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: rotate(15deg);
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.theme-toggle:active {
+    transform: rotate(15deg) scale(0.95);
+}
+
+.theme-icon {
+    width: 20px;
+    height: 20px;
+    transition: opacity 0.2s ease, transform 0.4s ease;
+}
+
+/* Show moon in dark mode (means: click to go light) */
+:root[data-theme="dark"] .icon-moon,
+:root:not([data-theme="light"]) .icon-moon { display: block; }
+:root[data-theme="dark"] .icon-sun,
+:root:not([data-theme="light"]) .icon-sun  { display: none; }
+
+/* Show sun in light mode (means: click to go dark) */
+:root[data-theme="light"] .icon-moon { display: none; }
+:root[data-theme="light"] .icon-sun  { display: block; }
 
 .brand {
     display: flex;
@@ -468,7 +562,7 @@ body {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--overlay-bg);
     backdrop-filter: blur(4px);
     z-index: 1000;
     align-items: center;
@@ -649,7 +743,7 @@ body {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(10, 14, 26, 0.85);
+    background: var(--overlay-bg-loading);
     backdrop-filter: blur(4px);
     z-index: 1500;
     align-items: center;
@@ -761,7 +855,7 @@ body {
 .result-error {
     background: rgba(239, 68, 68, 0.08);
     border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ffb3b3;
+    color: var(--danger);
     padding: 12px;
     border-radius: 6px;
     font-family: 'Consolas', 'Monaco', monospace;
