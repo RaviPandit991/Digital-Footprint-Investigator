@@ -75,13 +75,14 @@ def run_tool(tool_id):
     if tool_id not in TOOLS:
         return jsonify({"error": f"Unknown tool: {tool_id}"}), 404
 
-    # Metadata extraction supports file upload
+    # Metadata extraction supports file upload with optional mode field
     if tool_id == "metadata-extraction" and request.files:
         f = request.files.get("file")
         if f:
+            mode = request.form.get("mode", "basic")
             try:
                 result = metadata_extraction.run(
-                    target="", file_bytes=f.read(), filename=f.filename
+                    target="", file_bytes=f.read(), filename=f.filename, mode=mode
                 )
                 return jsonify(result)
             except Exception:
@@ -89,21 +90,25 @@ def run_tool(tool_id):
 
     data = request.get_json(silent=True) or {}
     target = data.get("target", "")
-    extra = data.get("options", {})
+    options = data.get("options", {}) or {}
+
+    # Filter out empty/None values so tool defaults kick in
+    clean_options = {k: v for k, v in options.items()
+                     if v is not None and v != ""}
 
     try:
-        if extra:
-            result = TOOLS[tool_id](target, **extra)
+        if clean_options:
+            result = TOOLS[tool_id](target, **clean_options)
         else:
             result = TOOLS[tool_id](target)
         return jsonify(result)
-    except TypeError:
-        # Fallback for tools that don't accept extra kwargs
+    except TypeError as e:
+        # Tool doesn't accept some kwargs - try without them
         try:
             result = TOOLS[tool_id](target)
             return jsonify(result)
         except Exception:
-            return jsonify({"error": traceback.format_exc()}), 500
+            return jsonify({"error": f"Options mismatch: {e}\n" + traceback.format_exc()}), 500
     except Exception:
         return jsonify({"error": traceback.format_exc()}), 500
 
