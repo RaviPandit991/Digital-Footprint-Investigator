@@ -212,15 +212,21 @@
                 <h3 id="modalTitle">Tool</h3>
                 <button class="modal-close" id="modalClose">&times;</button>
             </div>
-            <div class="modal-body">
-                <label for="modalInput" id="modalLabel">Target:</label>
-                <input type="text" id="modalInput" placeholder="Enter target..." />
-                <p class="modal-hint" id="modalHint"></p>
+            <div class="modal-body" id="modalBody">
+                <!-- Populated dynamically per tool -->
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="modalCancel">Cancel</button>
-                <button class="btn btn-primary" id="modalRun">Run Investigation</button>
+                <button class="btn btn-primary" id="modalRun">Run</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ===== LOADING OVERLAY ===== -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">Running investigation...</p>
         </div>
     </div>
 
