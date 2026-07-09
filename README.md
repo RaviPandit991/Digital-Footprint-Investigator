@@ -41,16 +41,27 @@ Investigate digital identities across 22 tools spanning **active reconnaissance*
 
 ---
 
+## Professional Features
+
+- **Investigation Cases** — All tool results are grouped under a persistent case (SQLite). Switch, rename, delete cases from the header.
+- **Entity Correlation** — Every tool auto-extracts entities (emails, IPs, domains, subdomains, usernames, GPS coordinates, ports, tech, CVEs) and suggests next tools to run against them.
+- **PDF Report Export** — One-click professional multi-page PDF with cover page, executive summary, entity index, per-tool findings, and SHA-256 chain-of-custody.
+- **Command Palette (Ctrl+K)** — VS Code style quick launcher for tools, cases, and actions with fuzzy search + keyboard navigation.
+- **Dark / Light Theme** — Toggle in header, respects OS preference, persists across sessions.
+- **Docker Ready** — Single `docker compose up` launches the entire stack.
+
 ## Setup
 
-### 1. Install Python dependencies
+### Option A: Docker (one command)
+```bash
+docker compose up
+```
+Then open http://localhost:5000. Data (cases, keys) persists in `./backend/data/`.
+
+### Option B: Manual Python install
 ```bash
 cd Digital-Footprint-Investigator
 pip install -r backend/requirements.txt
-```
-
-### 2. Start the backend
-```bash
 python -m backend.app
 ```
 

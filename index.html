@@ -33,6 +33,16 @@
             </div>
         </div>
         <div class="header-actions">
+            <button class="case-pill" id="casePill" title="Switch or manage investigation cases">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1zM9 5h6v2H9V5z"/>
+                </svg>
+                <span class="case-pill-label" id="casePillLabel">No case selected</span>
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="cmd-btn" id="cmdBtn" title="Command palette (Ctrl+K)">
+                <span>&#8984;K</span>
+            </button>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle dark/light theme">
                 <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -219,9 +229,27 @@
                     <input type="text" id="resultsSearch" placeholder="Filter results..." />
                 </div>
                 <div class="results-actions">
+                    <button class="btn btn-secondary" id="pdfBtn" title="Download PDF report of current case">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        PDF Report
+                    </button>
                     <button class="btn btn-secondary" id="exportBtn">Export JSON</button>
                     <button class="btn btn-danger" id="clearBtn">Clear All</button>
                 </div>
+            </div>
+            <div class="case-info-bar" id="caseInfoBar" style="display:none;">
+                <div class="case-info-header">
+                    <div>
+                        <span class="muted">Current case:</span>
+                        <strong id="caseInfoName">-</strong>
+                        <span class="muted" id="caseInfoStats"></span>
+                    </div>
+                    <div>
+                        <button class="btn-icon" id="caseInfoSwitch">Switch case</button>
+                    </div>
+                </div>
+                <div class="case-entities" id="caseEntities"></div>
+                <div class="case-suggestions" id="caseSuggestions"></div>
             </div>
             <div class="results-container" id="resultsContainer">
                 <div class="results-empty">
@@ -247,6 +275,36 @@
                 <button class="btn btn-secondary" id="modalCancel">Cancel</button>
                 <button class="btn btn-primary" id="modalRun">Run</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ===== CASES MODAL ===== -->
+    <div class="modal-overlay" id="casesOverlay">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3>Investigation Cases</h3>
+                <button class="modal-close" id="casesClose">&times;</button>
+            </div>
+            <div class="modal-body" id="casesBody">
+                <div class="cases-toolbar">
+                    <input type="text" id="newCaseName" class="modal-input" placeholder="New case name (optional)..." />
+                    <input type="text" id="newCaseTarget" class="modal-input" placeholder="Primary target (optional)..." />
+                    <button class="btn btn-primary" id="newCaseBtn">Create Case</button>
+                </div>
+                <div class="cases-list" id="casesList">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== COMMAND PALETTE ===== -->
+    <div class="cmd-overlay" id="cmdOverlay">
+        <div class="cmd-modal">
+            <div class="cmd-search">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="cmdInput" placeholder="Type a tool name, case, or action..." autocomplete="off" />
+                <span class="cmd-hint">ESC to close</span>
+            </div>
+            <div class="cmd-results" id="cmdResults"></div>
         </div>
     </div>
 

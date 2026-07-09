@@ -233,7 +233,18 @@ const TOOL_META = {
 };
 
 // ---------- STATE ----------
-const state = { results: [], currentTool: null, running: false };
+const state = {
+    results: [],
+    currentTool: null,
+    running: false,
+    currentCaseId: null,     // id of active investigation case
+    currentCase: null,       // full case data (results + entities + suggestions)
+    cases: [],               // list of all cases
+    cmdSelected: 0,          // selected index in command palette
+    cmdItems: [],            // current filtered palette items
+};
+
+const CASE_KEY = 'dfi-current-case';
 
 // ---------- DOM HELPERS ----------
 const $ = (id) => document.getElementById(id);
@@ -520,7 +531,7 @@ async function handleModalRun() {
         target: hasFile ? `[uploaded: ${fileInput.files[0].name}]` : target,
         options: hasFile ? {mode: options.mode || 'basic'} : options,
         timestamp: new Date().toISOString(),
-        status: 'running', data: null, error: null
+        status: 'running', data: null, error: null, suggestions: null
     };
     state.results.unshift(result);
     closeToolModal();
@@ -534,15 +545,31 @@ async function handleModalRun() {
             const fd = new FormData();
             fd.append('file', fileInput.files[0]);
             if (options.mode) fd.append('mode', options.mode);
+            if (state.currentCaseId) fd.append('case_id', String(state.currentCaseId));
+            if (target) fd.append('target', target);
             resp = await fetch(`${API_BASE}/api/run/${toolId}`, {method: 'POST', body: fd});
         } else {
             resp = await fetch(`${API_BASE}/api/run/${toolId}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({target, options})
+                body: JSON.stringify({
+                    target, options,
+                    case_id: state.currentCaseId || null
+                })
             });
         }
         const data = await resp.json();
+        // Extract _meta (case_id, suggestions) if present
+        const meta_ = data._meta;
+        if (meta_) {
+            delete data._meta;
+            if (meta_.case_id && meta_.case_id !== state.currentCaseId) {
+                setCurrentCase(meta_.case_id, /*silent=*/true);
+            }
+            result.caseId = meta_.case_id;
+            result.suggestions = meta_.suggestions || [];
+        }
+
         if (data.error) { result.status = 'error'; result.error = data.error; }
         else { result.status = 'success'; result.data = data; }
     } catch (err) {
@@ -551,6 +578,10 @@ async function handleModalRun() {
     } finally {
         state.running = false;
         hideLoading();
+        // Refresh case data (entities + suggestions bar)
+        if (state.currentCaseId) {
+            fetchCaseDetail(state.currentCaseId).catch(() => {});
+        }
         renderResults();
     }
 }
@@ -593,6 +624,15 @@ function renderResults(filter = '') {
         state.results = state.results.filter(r => r.id !== id);
         renderResults(filter);
     }));
+    $$('.suggestion-chip').forEach(btn => btn.addEventListener('click', e => {
+        const chip = e.target.closest('.suggestion-chip');
+        const toolId = chip.dataset.tool;
+        const target = chip.dataset.target;
+        openToolModal(toolId).then(() => {
+            const inp = $('modalInput');
+            if (inp) inp.value = target;
+        });
+    }));
 }
 
 function renderResultItem(r) {
@@ -614,6 +654,18 @@ function renderResultItem(r) {
             `${k}=${typeof v === 'boolean' ? (v ? 'on' : 'off') : v}`).join(' &middot; ')}</span>`
         : '';
 
+    const suggestionsHtml = (r.suggestions && r.suggestions.length > 0 && r.status === 'success')
+        ? `<div class="result-suggestions">
+            <div class="case-suggestions-title">&#10142; Suggested next steps</div>
+            <div class="suggestion-chips">${r.suggestions.slice(0, 6).map(s =>
+                `<button class="suggestion-chip" data-tool="${escapeHtml(s.tool_id)}" data-target="${escapeHtml(s.target)}">
+                    <span class="tool-name">${escapeHtml(s.tool_name)}</span>
+                    <span class="arrow">&rarr;</span>
+                    <span class="target">${escapeHtml(s.target)}</span>
+                </button>`).join('')}</div>
+          </div>`
+        : '';
+
     return `
     <div class="result-item ${r.type}-type ${r.status}" data-id="${r.id}">
         <div class="result-header">
@@ -631,6 +683,7 @@ function renderResultItem(r) {
         ${optionsBadge}
         <div class="result-summary">${escapeHtml(summary)}</div>
         <div class="result-details">${details}</div>
+        ${suggestionsHtml}
         <div class="result-meta">${formatTime(r.timestamp)}</div>
     </div>`;
 }
@@ -1226,8 +1279,478 @@ function initTheme() {
     btn.addEventListener('click', () => localStorage.setItem(THEME_KEY + '-manual', '1'), { once: true });
 }
 
+// ============================================
+// CASE MANAGEMENT
+// ============================================
+
+function setCurrentCase(caseId, silent = false) {
+    state.currentCaseId = caseId;
+    if (caseId) {
+        localStorage.setItem(CASE_KEY, String(caseId));
+    } else {
+        localStorage.removeItem(CASE_KEY);
+    }
+    if (!silent) fetchCaseDetail(caseId).catch(() => {});
+    updateCasePill();
+}
+
+function updateCasePill() {
+    const pill = $('casePill');
+    const label = $('casePillLabel');
+    if (!pill || !label) return;
+    if (!state.currentCaseId) {
+        label.textContent = 'No case selected';
+        pill.classList.add('no-case');
+        pill.classList.remove('active');
+    } else {
+        const c = state.cases.find(x => x.id === state.currentCaseId) || state.currentCase;
+        label.textContent = c ? `Case #${c.id}: ${c.name}` : `Case #${state.currentCaseId}`;
+        pill.classList.remove('no-case');
+        pill.classList.add('active');
+    }
+}
+
+async function fetchCases() {
+    try {
+        const resp = await fetch(`${API_BASE}/api/cases`);
+        const data = await resp.json();
+        state.cases = data.cases || [];
+        updateCasePill();
+        return state.cases;
+    } catch (e) { return []; }
+}
+
+async function fetchCaseDetail(caseId) {
+    if (!caseId) { state.currentCase = null; renderCaseInfoBar(); return null; }
+    try {
+        const resp = await fetch(`${API_BASE}/api/cases/${caseId}`);
+        if (!resp.ok) throw new Error('not found');
+        const data = await resp.json();
+        state.currentCase = data;
+        // Sync in-memory results with the case results (so switching cases works)
+        state.results = (data.results || []).map(r => ({
+            id: r.id,
+            toolId: r.tool_id,
+            toolName: r.tool_name,
+            type: r.tool_type,
+            target: r.target,
+            options: r.options,
+            timestamp: r.started_at,
+            status: r.status,
+            data: r.result,
+            error: r.error,
+            suggestions: null,
+            caseId: caseId,
+            _persistent: true
+        }));
+        renderCaseInfoBar();
+        renderResults();
+        updateCasePill();
+        return data;
+    } catch (e) {
+        state.currentCase = null;
+        return null;
+    }
+}
+
+async function createCase(name, primaryTarget, description) {
+    const resp = await fetch(`${API_BASE}/api/cases`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, primary_target: primaryTarget, description })
+    });
+    const data = await resp.json();
+    await fetchCases();
+    return data;
+}
+
+async function deleteCase(caseId) {
+    await fetch(`${API_BASE}/api/cases/${caseId}`, { method: 'DELETE' });
+    if (state.currentCaseId === caseId) {
+        setCurrentCase(null);
+        state.results = [];
+        renderResults();
+    }
+    await fetchCases();
+    renderCasesList();
+}
+
+async function renameCasePrompt(caseId) {
+    const c = state.cases.find(x => x.id === caseId);
+    const newName = prompt('New case name:', c?.name || '');
+    if (!newName || newName.trim() === c?.name) return;
+    await fetch(`${API_BASE}/api/cases/${caseId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: newName.trim() })
+    });
+    await fetchCases();
+    renderCasesList();
+    if (caseId === state.currentCaseId) fetchCaseDetail(caseId);
+}
+
+function openCasesModal() {
+    fetchCases().then(() => renderCasesList());
+    $('casesOverlay').classList.add('show');
+}
+
+function closeCasesModal() {
+    $('casesOverlay').classList.remove('show');
+}
+
+function renderCasesList() {
+    const container = $('casesList');
+    if (!container) return;
+    if (state.cases.length === 0) {
+        container.innerHTML = `<div class="results-empty" style="padding:30px;">
+            <p>No cases yet. Create one above, or run any tool and one will be auto-created for you.</p>
+        </div>`;
+        return;
+    }
+    container.innerHTML = state.cases.map(c => {
+        const isCurrent = c.id === state.currentCaseId;
+        return `
+        <div class="case-row ${isCurrent ? 'current' : ''}" data-case-id="${c.id}">
+            <div class="case-row-info">
+                <div class="case-row-name">
+                    ${escapeHtml(c.name)}
+                    ${isCurrent ? '<span class="case-badge-current">Active</span>' : ''}
+                </div>
+                ${c.primary_target ? `<div class="case-row-target">${escapeHtml(c.primary_target)}</div>` : ''}
+                <div class="case-row-meta">
+                    #${c.id} &middot; ${c.result_count} run(s) &middot; ${c.entity_count} entities &middot;
+                    updated ${new Date(c.updated_at).toLocaleString()}
+                </div>
+            </div>
+            <div class="case-row-actions">
+                ${isCurrent ? '' : `<button class="btn btn-primary btn-sm case-open" data-id="${c.id}">Open</button>`}
+                <button class="btn-icon case-rename" data-id="${c.id}" title="Rename">&#9998;</button>
+                <button class="btn-icon case-pdf" data-id="${c.id}" title="Export PDF">&#128196;</button>
+                <button class="btn-icon case-delete" data-id="${c.id}" title="Delete">&times;</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    $$('.case-open').forEach(b => b.addEventListener('click', e => {
+        setCurrentCase(parseInt(e.target.dataset.id));
+        closeCasesModal();
+        switchTab('results');
+    }));
+    $$('.case-rename').forEach(b => b.addEventListener('click', e => {
+        renameCasePrompt(parseInt(e.target.closest('[data-id]').dataset.id));
+    }));
+    $$('.case-delete').forEach(b => b.addEventListener('click', e => {
+        const id = parseInt(e.target.closest('[data-id]').dataset.id);
+        const c = state.cases.find(x => x.id === id);
+        if (confirm(`Delete case "${c?.name}"? This deletes all its results permanently.`)) {
+            deleteCase(id);
+        }
+    }));
+    $$('.case-pdf').forEach(b => b.addEventListener('click', e => {
+        const id = parseInt(e.target.closest('[data-id]').dataset.id);
+        downloadPdfReport(id);
+    }));
+}
+
+function renderCaseInfoBar() {
+    const bar = $('caseInfoBar');
+    if (!bar) return;
+    const c = state.currentCase;
+    if (!c) {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'block';
+    $('caseInfoName').textContent = c.name;
+    $('caseInfoStats').textContent =
+        `#${c.id} · ${(c.results || []).length} runs · ${(c.entities || []).length} entities`;
+
+    // Entities (max 30)
+    const ents = c.entities || [];
+    $('caseEntities').innerHTML = ents.slice(0, 30).map(e =>
+        `<span class="entity-pill" title="Source: ${escapeHtml(e.source_tool_id || '')}">
+            <span class="entity-type">${escapeHtml(e.entity_type)}</span>
+            ${escapeHtml(e.value)}
+        </span>`).join('') + (ents.length > 30 ? `<span class="muted">+${ents.length - 30} more</span>` : '');
+
+    // Suggestions
+    const sugContainer = $('caseSuggestions');
+    const sugs = (c.suggestions || []).slice(0, 8);
+    if (sugs.length === 0) {
+        sugContainer.innerHTML = '';
+    } else {
+        sugContainer.innerHTML = `
+            <div class="case-suggestions-title">&#10142; Suggested next steps</div>
+            <div class="suggestion-chips">${sugs.map(s =>
+                `<button class="suggestion-chip case-sug" data-tool="${escapeHtml(s.tool_id)}" data-target="${escapeHtml(s.target)}">
+                    <span class="tool-name">${escapeHtml(s.tool_name)}</span>
+                    <span class="arrow">&rarr;</span>
+                    <span class="target">${escapeHtml(s.target)}</span>
+                </button>`).join('')}</div>`;
+        $$('.case-sug').forEach(btn => btn.addEventListener('click', e => {
+            const chip = e.currentTarget;
+            const toolId = chip.dataset.tool;
+            const target = chip.dataset.target;
+            openToolModal(toolId).then(() => {
+                const inp = $('modalInput');
+                if (inp) inp.value = target;
+            });
+        }));
+    }
+}
+
+// ============================================
+// PDF REPORT EXPORT
+// ============================================
+
+async function downloadPdfReport(caseId) {
+    caseId = caseId || state.currentCaseId;
+    if (!caseId) { showToast('No case selected. Run a tool or open a case first.'); return; }
+    showLoading('Generating PDF report...');
+    try {
+        const resp = await fetch(`${API_BASE}/api/cases/${caseId}/report.pdf`);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+        const blob = await resp.blob();
+        const sha = resp.headers.get('X-Report-SHA256') || '';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dfi-report-case-${caseId}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(sha ? `Report downloaded. SHA-256: ${sha.slice(0, 12)}...` : 'Report downloaded.');
+    } catch (e) {
+        showToast('PDF generation failed: ' + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============================================
+// COMMAND PALETTE (Ctrl+K)
+// ============================================
+
+function buildCmdItems(query) {
+    const q = (query || '').toLowerCase().trim();
+    const items = [];
+
+    // Tools
+    for (const [id, meta] of Object.entries(TOOL_META)) {
+        items.push({
+            group: 'Tools',
+            type: 'tool',
+            id: id,
+            title: meta.name,
+            subtitle: `Run ${meta.name} (${meta.type})`,
+            icon: meta.type === 'active' ? '&#9889;' : '&#128065;',
+            action: () => openToolModal(id)
+        });
+    }
+
+    // Cases
+    for (const c of state.cases) {
+        items.push({
+            group: 'Cases',
+            type: 'case',
+            id: c.id,
+            title: c.name,
+            subtitle: `#${c.id} · ${c.result_count} runs · ${c.primary_target || 'no target'}`,
+            icon: '&#128193;',
+            action: () => {
+                setCurrentCase(c.id);
+                switchTab('results');
+                closeCmdPalette();
+            }
+        });
+    }
+
+    // Actions
+    const actions = [
+        { title: 'Manage Cases', subtitle: 'Open case list', icon: '&#128203;',
+          action: () => { closeCmdPalette(); openCasesModal(); } },
+        { title: 'New Case', subtitle: 'Create a new investigation case', icon: '&#10133;',
+          action: async () => {
+              closeCmdPalette();
+              const name = prompt('New case name:');
+              if (name) {
+                  const c = await createCase(name.trim(), '', '');
+                  if (c && c.id) { setCurrentCase(c.id); showToast(`Case "${c.name}" created.`); }
+              } } },
+        { title: 'Export PDF Report', subtitle: 'Download current case as PDF', icon: '&#128196;',
+          action: () => { closeCmdPalette(); downloadPdfReport(); } },
+        { title: 'Export JSON', subtitle: 'Download current results as JSON', icon: '&#128190;',
+          action: () => { closeCmdPalette(); $('exportBtn').click(); } },
+        { title: 'Toggle Theme', subtitle: 'Switch dark / light mode', icon: '&#127769;',
+          action: () => { closeCmdPalette(); $('themeToggle').click(); } },
+        { title: 'Go to Active', subtitle: 'Switch to Active tab', icon: '&#8681;',
+          action: () => { closeCmdPalette(); switchTab('active'); } },
+        { title: 'Go to Passive', subtitle: 'Switch to Passive tab', icon: '&#8681;',
+          action: () => { closeCmdPalette(); switchTab('passive'); } },
+        { title: 'Go to Results', subtitle: 'Switch to Results tab', icon: '&#8681;',
+          action: () => { closeCmdPalette(); switchTab('results'); } },
+    ];
+    for (const a of actions) {
+        items.push({ group: 'Actions', type: 'action', ...a });
+    }
+
+    if (!q) return items;
+    // Simple fuzzy: match if all query chars appear in order
+    return items.filter(item => {
+        const hay = (item.title + ' ' + (item.subtitle || '')).toLowerCase();
+        let idx = 0;
+        for (const c of q) {
+            const found = hay.indexOf(c, idx);
+            if (found === -1) return false;
+            idx = found + 1;
+        }
+        return true;
+    });
+}
+
+function openCmdPalette() {
+    $('cmdOverlay').classList.add('show');
+    $('cmdInput').value = '';
+    state.cmdSelected = 0;
+    renderCmdPalette('');
+    setTimeout(() => $('cmdInput').focus(), 50);
+}
+
+function closeCmdPalette() {
+    $('cmdOverlay').classList.remove('show');
+}
+
+function renderCmdPalette(query) {
+    const items = buildCmdItems(query);
+    state.cmdItems = items;
+    if (state.cmdSelected >= items.length) state.cmdSelected = 0;
+    const container = $('cmdResults');
+    if (items.length === 0) {
+        container.innerHTML = `<div class="cmd-empty">No matches for "${escapeHtml(query)}"</div>`;
+        return;
+    }
+    let html = '';
+    let lastGroup = '';
+    items.forEach((item, i) => {
+        if (item.group !== lastGroup) {
+            html += `<div class="cmd-group">${escapeHtml(item.group)}</div>`;
+            lastGroup = item.group;
+        }
+        html += `
+        <div class="cmd-item ${i === state.cmdSelected ? 'selected' : ''}" data-index="${i}">
+            <div class="cmd-item-icon">${item.icon}</div>
+            <div class="cmd-item-content">
+                <div class="cmd-item-title">${escapeHtml(item.title)}</div>
+                <div class="cmd-item-subtitle">${escapeHtml(item.subtitle || '')}</div>
+            </div>
+            ${i === state.cmdSelected ? '<span class="cmd-item-kbd">Enter</span>' : ''}
+        </div>`;
+    });
+    container.innerHTML = html;
+    $$('.cmd-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.index);
+            const item = state.cmdItems[idx];
+            if (item && item.action) item.action();
+        });
+        el.addEventListener('mouseenter', () => {
+            state.cmdSelected = parseInt(el.dataset.index);
+            $$('.cmd-item').forEach(x => x.classList.remove('selected'));
+            el.classList.add('selected');
+        });
+    });
+    // Scroll selected into view
+    const selected = document.querySelector('.cmd-item.selected');
+    if (selected) selected.scrollIntoView({ block: 'nearest' });
+}
+
+function initCmdPalette() {
+    $('cmdInput').addEventListener('input', e => renderCmdPalette(e.target.value));
+    $('cmdInput').addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            state.cmdSelected = Math.min(state.cmdSelected + 1, state.cmdItems.length - 1);
+            renderCmdPalette($('cmdInput').value);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            state.cmdSelected = Math.max(state.cmdSelected - 1, 0);
+            renderCmdPalette($('cmdInput').value);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const item = state.cmdItems[state.cmdSelected];
+            if (item && item.action) item.action();
+        } else if (e.key === 'Escape') {
+            closeCmdPalette();
+        }
+    });
+    $('cmdOverlay').addEventListener('click', e => {
+        if (e.target.id === 'cmdOverlay') closeCmdPalette();
+    });
+    // Global shortcut
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            openCmdPalette();
+        }
+    });
+    $('cmdBtn')?.addEventListener('click', openCmdPalette);
+}
+
+// ============================================
+// INIT case pill + cases modal
+// ============================================
+
+function initCases() {
+    $('casePill')?.addEventListener('click', openCasesModal);
+    $('casesClose')?.addEventListener('click', closeCasesModal);
+    $('casesOverlay')?.addEventListener('click', e => {
+        if (e.target.id === 'casesOverlay') closeCasesModal();
+    });
+    $('newCaseBtn')?.addEventListener('click', async () => {
+        const name = $('newCaseName').value.trim();
+        const target = $('newCaseTarget').value.trim();
+        if (!name && !target) {
+            showToast('Enter a case name or primary target.');
+            return;
+        }
+        const c = await createCase(name, target, '');
+        if (c && c.id) {
+            setCurrentCase(c.id);
+            $('newCaseName').value = '';
+            $('newCaseTarget').value = '';
+            renderCasesList();
+            showToast(`Case "${c.name}" created.`);
+        }
+    });
+    $('caseInfoSwitch')?.addEventListener('click', openCasesModal);
+    $('pdfBtn')?.addEventListener('click', () => downloadPdfReport());
+
+    // Restore last case from localStorage
+    const stored = localStorage.getItem(CASE_KEY);
+    if (stored) {
+        const id = parseInt(stored);
+        if (!isNaN(id)) {
+            fetchCases().then(() => {
+                if (state.cases.find(c => c.id === id)) {
+                    setCurrentCase(id);
+                }
+            });
+            return;
+        }
+    }
+    fetchCases();
+}
+
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    initTabs(); initToolCards(); initModal(); initResultsToolbar(); checkBackend();
+    initTabs();
+    initToolCards();
+    initModal();
+    initResultsToolbar();
+    initCases();
+    initCmdPalette();
+    checkBackend();
 });
