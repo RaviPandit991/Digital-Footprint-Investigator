@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Footprint Investigator</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <circle cx="11" cy="11" r="3"></circle>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>Digital Footprint Investigator</h1>
+                <p>OSINT toolkit for investigating digital identities</p>
+            </div>
+        </div>
+        <div class="header-status">
+            <span class="status-dot"></span>
+            <span>System Ready</span>
+        </div>
+    </header>
+
+    <!-- ===== TAB NAV ===== -->
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="active">
+            <span class="tab-icon">&#9889;</span>
+            <span class="tab-label">Active</span>
+            <span class="tab-desc">Direct interaction</span>
+        </button>
+        <button class="tab-btn" data-tab="passive">
+            <span class="tab-icon">&#128065;</span>
+            <span class="tab-label">Passive</span>
+            <span class="tab-desc">Non-intrusive recon</span>
+        </button>
+        <button class="tab-btn" data-tab="results">
+            <span class="tab-icon">&#128203;</span>
+            <span class="tab-label">Results</span>
+            <span class="tab-desc">Investigation output</span>
+        </button>
+    </nav>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="content">
+
+        <!-- ========== ACTIVE ========== -->
+        <section class="tab-panel active" id="tab-active">
+            <div class="panel-header">
+                <h2>Active Investigation</h2>
+                <p>Tools that directly interact with the target. Use with authorization only.</p>
+            </div>
+            <div class="tool-grid">
+                <div class="tool-card" data-tool="port-scan">
+                    <div class="tool-icon">&#128737;</div>
+                    <h3>Port Scanning</h3>
+                    <p>Discover open ports and running services on a target host.</p>
+                </div>
+                <div class="tool-card" data-tool="dns-enum">
+                    <div class="tool-icon">&#127760;</div>
+                    <h3>DNS Enumeration</h3>
+                    <p>Query DNS records (A, MX, TXT, NS, CNAME) for a domain.</p>
+                </div>
+                <div class="tool-card" data-tool="subdomain-enum">
+                    <div class="tool-icon">&#127758;</div>
+                    <h3>Subdomain Enumeration</h3>
+                    <p>Discover subdomains via bruteforce and public sources.</p>
+                </div>
+                <div class="tool-card" data-tool="whois">
+                    <div class="tool-icon">&#128196;</div>
+                    <h3>WHOIS Lookup</h3>
+                    <p>Retrieve domain registration and ownership information.</p>
+                </div>
+                <div class="tool-card" data-tool="dir-brute">
+                    <div class="tool-icon">&#128193;</div>
+                    <h3>Directory Bruteforce</h3>
+                    <p>Discover hidden directories and files on a web server.</p>
+                </div>
+                <div class="tool-card" data-tool="web-crawler">
+                    <div class="tool-icon">&#128374;</div>
+                    <h3>Web Crawler</h3>
+                    <p>Crawl a website and extract links, forms, and endpoints.</p>
+                </div>
+                <div class="tool-card" data-tool="ssl-scan">
+                    <div class="tool-icon">&#128274;</div>
+                    <h3>SSL / TLS Scanner</h3>
+                    <p>Analyze SSL certificates and cipher configurations.</p>
+                </div>
+                <div class="tool-card" data-tool="banner-grab">
+                    <div class="tool-icon">&#128225;</div>
+                    <h3>Banner Grabbing</h3>
+                    <p>Fingerprint services and extract version information.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== PASSIVE ========== -->
+        <section class="tab-panel" id="tab-passive">
+            <div class="panel-header">
+                <h2>Passive Investigation</h2>
+                <p>Gather intelligence from public sources without contacting the target.</p>
+            </div>
+            <div class="tool-grid">
+                <div class="tool-card" data-tool="authentication">
+                    <div class="tool-icon">&#128273;</div>
+                    <h3>Authentication</h3>
+                    <p>Verify API keys and configure credentials for external services.</p>
+                </div>
+                <div class="tool-card" data-tool="username-lookup">
+                    <div class="tool-icon">&#128100;</div>
+                    <h3>Username Lookup</h3>
+                    <p>Search a username across 100+ social media platforms.</p>
+                </div>
+                <div class="tool-card" data-tool="email-investigation">
+                    <div class="tool-icon">&#9993;&#65039;</div>
+                    <h3>Email Investigation</h3>
+                    <p>Validate email, check breaches, and find linked accounts.</p>
+                </div>
+                <div class="tool-card" data-tool="domain-investigation">
+                    <div class="tool-icon">&#127760;</div>
+                    <h3>Domain Investigation</h3>
+                    <p>Gather passive DNS, historical records, and reputation data.</p>
+                </div>
+                <div class="tool-card" data-tool="ip-investigation">
+                    <div class="tool-icon">&#128421;</div>
+                    <h3>IP Investigation</h3>
+                    <p>Geolocate an IP, check ASN, blacklists, and abuse reports.</p>
+                </div>
+                <div class="tool-card" data-tool="phone-investigation">
+                    <div class="tool-icon">&#128241;</div>
+                    <h3>Phone Investigation</h3>
+                    <p>Identify carrier, region, line type, and linked identities.</p>
+                </div>
+                <div class="tool-card" data-tool="metadata-extraction">
+                    <div class="tool-icon">&#128196;</div>
+                    <h3>Metadata Extraction</h3>
+                    <p>Extract EXIF and metadata from images, documents, and files.</p>
+                </div>
+                <div class="tool-card" data-tool="website-analysis">
+                    <div class="tool-icon">&#128187;</div>
+                    <h3>Website Analysis</h3>
+                    <p>Fingerprint tech stack, headers, and third-party integrations.</p>
+                </div>
+                <div class="tool-card" data-tool="social-media">
+                    <div class="tool-icon">&#128172;</div>
+                    <h3>Social Media Search</h3>
+                    <p>Aggregate public posts and profiles across social platforms.</p>
+                </div>
+                <div class="tool-card" data-tool="breach-check">
+                    <div class="tool-icon">&#128683;</div>
+                    <h3>Data Breach Check</h3>
+                    <p>Search known breach databases for exposed credentials.</p>
+                </div>
+                <div class="tool-card" data-tool="reverse-image">
+                    <div class="tool-icon">&#128247;</div>
+                    <h3>Reverse Image Search</h3>
+                    <p>Find image sources and duplicates across the web.</p>
+                </div>
+                <div class="tool-card" data-tool="google-dorking">
+                    <div class="tool-icon">&#128269;</div>
+                    <h3>Google Dorking</h3>
+                    <p>Run advanced search queries to uncover indexed data.</p>
+                </div>
+                <div class="tool-card" data-tool="public-records">
+                    <div class="tool-icon">&#128218;</div>
+                    <h3>Public Records</h3>
+                    <p>Search public registries, court records, and business filings.</p>
+                </div>
+                <div class="tool-card" data-tool="dark-web">
+                    <div class="tool-icon">&#127761;</div>
+                    <h3>Dark Web Monitor</h3>
+                    <p>Search dark web indexes for mentions of the target.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== RESULTS ========== -->
+        <section class="tab-panel" id="tab-results">
+            <div class="panel-header">
+                <h2>Investigation Results</h2>
+                <p>Consolidated output from all executed tools.</p>
+            </div>
+            <div class="results-toolbar">
+                <div class="results-filter">
+                    <input type="text" id="resultsSearch" placeholder="Filter results..." />
+                </div>
+                <div class="results-actions">
+                    <button class="btn btn-secondary" id="exportBtn">Export JSON</button>
+                    <button class="btn btn-danger" id="clearBtn">Clear All</button>
+                </div>
+            </div>
+            <div class="results-container" id="resultsContainer">
+                <div class="results-empty">
+                    <div class="empty-icon">&#128269;</div>
+                    <h3>No results yet</h3>
+                    <p>Run a tool from the <strong>Active</strong> or <strong>Passive</strong> tab to see results here.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== TOOL MODAL ===== -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Tool</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="modalInput" id="modalLabel">Target:</label>
+                <input type="text" id="modalInput" placeholder="Enter target..." />
+                <p class="modal-hint" id="modalHint"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+                <button class="btn btn-primary" id="modalRun">Run Investigation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <div class="toast" id="toast"></div>
+
+    <footer class="app-footer">
+        <p>Digital Footprint Investigator &middot; For authorized security research and educational use only.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
